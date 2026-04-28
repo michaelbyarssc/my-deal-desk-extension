@@ -129,19 +129,7 @@ const App = () => {
   }
 
   if (!status.paired) {
-    return (
-      <>
-        <Section title="My Deal Desk">
-          <div style={{ marginBottom: 8 }}>This extension fills SCAR forms and MLS Add/Edit pages from your master listing in My Deal Desk.</div>
-          <Btn
-            variant="primary"
-            onClick={() => chrome.tabs.create({ url: `${status.apiBase}/settings?pair-extension=1` })}
-          >
-            Open My Deal Desk to pair
-          </Btn>
-        </Section>
-      </>
-    );
+    return <PairingForm apiBase={status.apiBase} onPaired={async () => setStatus(await agentpathClient.getStatus())} />;
   }
 
   return (
@@ -213,6 +201,72 @@ const App = () => {
           <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 8px", background: "#1a1a1d", borderRadius: 4 }}>{message}</div>
         </Section>
       )}
+    </>
+  );
+};
+
+// Pairing form. Shown when the extension has no token yet. Walks the agent
+// through the Settings → Browser extension flow on the My Deal Desk side
+// and accepts the pasted token + email.
+const PairingForm: React.FC<{ apiBase: string; onPaired: () => void | Promise<void> }> = ({ apiBase, onPaired }) => {
+  const [token, setToken] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setErr(null);
+    if (!token.trim() || !email.trim()) {
+      setErr("Both fields are required.");
+      return;
+    }
+    setBusy(true);
+    await agentpathClient.pair(token.trim(), email.trim());
+    setBusy(false);
+    await onPaired();
+  };
+
+  return (
+    <>
+      <Section title="My Deal Desk">
+        <div style={{ marginBottom: 12, color: "#9ca3af" }}>
+          Pair this browser with your account to fill forms from your master Listing Intake.
+        </div>
+        <ol style={{ paddingLeft: 16, color: "#9ca3af", fontSize: 12, marginBottom: 12, lineHeight: 1.6 }}>
+          <li>Open My Deal Desk → Settings → Integrations.</li>
+          <li>Click "Get pairing token" under "Browser extension".</li>
+          <li>Copy the token + email back here.</li>
+        </ol>
+        <Btn
+          variant="ghost"
+          onClick={() => chrome.tabs.create({ url: `${apiBase}/settings?tab=integrations` })}
+        >
+          Open My Deal Desk Settings →
+        </Btn>
+      </Section>
+
+      <Section title="Paste here">
+        <input
+          type="text"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{ width: "100%", padding: "6px 8px", marginBottom: 6, background: "#1a1a1d", color: "white", border: "1px solid #333", borderRadius: 4, fontSize: 12, boxSizing: "border-box" }}
+        />
+        <textarea
+          placeholder="Paste pairing token..."
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          rows={3}
+          style={{ width: "100%", padding: "6px 8px", marginBottom: 8, background: "#1a1a1d", color: "white", border: "1px solid #333", borderRadius: 4, fontSize: 11, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box" }}
+        />
+        <Btn variant="primary" disabled={busy || !token || !email} onClick={submit}>
+          {busy ? "Pairing..." : "Pair extension"}
+        </Btn>
+        {err && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "#f87171" }}>{err}</div>
+        )}
+      </Section>
     </>
   );
 };
