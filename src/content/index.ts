@@ -13,6 +13,7 @@ import { findAdapterForUrl, allAdapters } from "./adapters/types";
 
 // Self-registration of adapters happens via these imports.
 import "./adapters/digisign";
+import "./adapters/ggar";
 
 interface FillablePayload {
   target: string;

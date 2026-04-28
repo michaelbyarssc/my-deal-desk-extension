@@ -196,6 +196,33 @@ const App = () => {
         </Section>
       )}
 
+      {fillable?.target === "ggar" && (
+        <Section title="Field-map authoring">
+          <Btn
+            variant="ghost"
+            onClick={async () => {
+              const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+              const tabId = tabs[0]?.id;
+              if (!tabId) return;
+              try {
+                const res = await chrome.tabs.sendMessage(tabId, { type: "ggar-discover" });
+                if (!res?.ok) {
+                  setMessage(res?.error ?? "discover failed");
+                  return;
+                }
+                const json = JSON.stringify(res.fields, null, 2);
+                await navigator.clipboard.writeText(json);
+                setMessage(`Copied ${res.fields.length} fields to clipboard.`);
+              } catch (e) {
+                setMessage(e instanceof Error ? e.message : String(e));
+              }
+            }}
+          >
+            Discover fields → clipboard
+          </Btn>
+        </Section>
+      )}
+
       {message && (
         <Section>
           <div style={{ fontSize: 12, color: "#9ca3af", padding: "6px 8px", background: "#1a1a1d", borderRadius: 4 }}>{message}</div>
