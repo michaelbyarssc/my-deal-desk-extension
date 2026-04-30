@@ -14,7 +14,52 @@ interface FillableState {
 
 const tabFillableState = new Map<number, FillableState>();
 
+// Allowed origins for the pair-from-page handshake. The content script
+// can only run on these matches per manifest, but we double-check origin
+// here so a compromised content script can't store an arbitrary token.
+const ALLOWED_PAIR_ORIGINS = new Set([
+  // Lovable preview URLs
+  "https://my-deal-desk.lovable.app",
+  // Custom domain (when configured)
+  "https://my-deal-desk.com",
+  "https://app.my-deal-desk.com",
+]);
+
+const isAllowedPairOrigin = (origin: string | undefined): boolean => {
+  if (!origin) return false;
+  if (ALLOWED_PAIR_ORIGINS.has(origin)) return true;
+  // Allow any *.lovable.app subdomain for preview deploys.
+  try {
+    const u = new URL(origin);
+    return u.hostname.endsWith(".lovable.app");
+  } catch {
+    return false;
+  }
+};
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Pair token forwarded from the agentpath app via pair-receiver content
+  // script. Stores it in chrome.storage.local exactly like the manual
+  // paste flow used to.
+  if (msg?.type === "pair-from-page") {
+    const senderOrigin = sender.origin ?? msg?.origin;
+    if (!isAllowedPairOrigin(senderOrigin)) {
+      sendResponse({ ok: false, error: `origin not allowed: ${senderOrigin}` });
+      return false;
+    }
+    const token = typeof msg.token === "string" ? msg.token : "";
+    const email = typeof msg.email === "string" ? msg.email : "";
+    if (!token || !email) {
+      sendResponse({ ok: false, error: "missing token or email" });
+      return false;
+    }
+    void chrome.storage.local
+      .set({ "mdd.pairingToken": token, "mdd.agentEmail": email })
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: e?.message ?? String(e) }));
+    return true; // async response
+  }
+
   // Content script reporting that the page is ready to fill.
   if (msg?.type === "fillable" && sender.tab?.id != null) {
     tabFillableState.set(sender.tab.id, {

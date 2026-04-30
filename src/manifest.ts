@@ -29,6 +29,8 @@ export default defineManifest({
     "https://next.navicamls.net/*",
     // My Deal Desk app (so the popup can call our API + read pairing token)
     "https://*.lovable.app/*",
+    "https://my-deal-desk.com/*",
+    "https://app.my-deal-desk.com/*",
     "https://*.supabase.co/*",
   ],
 
@@ -56,6 +58,18 @@ export default defineManifest({
       // the adapter's onPageChange watcher does the real activation work.
       run_at: "document_idle",
       all_frames: true,
+    },
+    {
+      // Pairing receiver — runs on the My Deal Desk app domain only.
+      // Listens for window.postMessage handshakes from /connect-browser.
+      matches: [
+        "https://*.lovable.app/*",
+        "https://my-deal-desk.com/*",
+        "https://app.my-deal-desk.com/*",
+      ],
+      js: ["src/content/pair-receiver.ts"],
+      run_at: "document_idle",
+      all_frames: false,
     },
   ],
 
